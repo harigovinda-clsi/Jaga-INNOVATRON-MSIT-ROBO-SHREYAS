@@ -1,0 +1,1277 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KrushiMitra: Advanced 3D Paddy Field Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #87CEEB, #98FB98);
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            z-index: 100;
+            min-width: 280px;
+            box-shadow: 0 8px 32px rgba(0, 0, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 100, 0, 0.9);
+            color: white;
+            padding: 20px;
+            border-radius: 15px;
+            z-index: 100;
+            box-shadow: 0 8px 32px rgba(0, 100, 0, 0.3);
+            backdrop-filter: blur(10px);
+        }
+
+        #weather-panel {
+            position: absolute;
+            bottom: 20px;
+            left: 20px;
+            background: rgba(25, 25, 112, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            z-index: 100;
+            min-width: 250px;
+        }
+
+        #economics-panel {
+            position: absolute;
+            bottom: 20px;
+            right: 20px;
+            background: rgba(139, 69, 19, 0.9);
+            color: white;
+            padding: 15px;
+            border-radius: 15px;
+            z-index: 100;
+            min-width: 200px;
+        }
+        
+        .control-btn {
+            background: linear-gradient(45deg, #4CAF50, #45a049);
+            color: white;
+            border: none;
+            padding: 10px 18px;
+            margin: 5px;
+            border-radius: 8px;
+            cursor: pointer;
+            font-size: 13px;
+            transition: all 0.3s ease;
+            box-shadow: 0 4px 15px rgba(76, 175, 80, 0.3);
+        }
+        
+        .control-btn:hover {
+            transform: translateY(-2px);
+            box-shadow: 0 6px 20px rgba(76, 175, 80, 0.4);
+        }
+
+        .weather-btn {
+            background: linear-gradient(45deg, #1E90FF, #0066CC);
+            box-shadow: 0 4px 15px rgba(30, 144, 255, 0.3);
+        }
+
+        .weather-btn:hover {
+            box-shadow: 0 6px 20px rgba(30, 144, 255, 0.4);
+        }
+        
+        .disease-alert {
+            background: linear-gradient(45deg, #FF4444, #CC0000);
+            color: white;
+            padding: 12px;
+            border-radius: 8px;
+            margin: 8px 0;
+            animation: pulse 2s infinite;
+            box-shadow: 0 4px 15px rgba(255, 68, 68, 0.3);
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; transform: scale(1); }
+            50% { opacity: 0.8; transform: scale(1.02); }
+            100% { opacity: 1; transform: scale(1); }
+        }
+        
+        .treatment-success {
+            background: linear-gradient(45deg, #00FF44, #00CC22);
+            color: white;
+            padding: 10px;
+            border-radius: 8px;
+            margin: 5px 0;
+            animation: slideIn 0.5s ease;
+        }
+
+        @keyframes slideIn {
+            from { transform: translateX(-100%); opacity: 0; }
+            to { transform: translateX(0); opacity: 1; }
+        }
+        
+        h3 {
+            margin: 12px 0 8px 0;
+            color: #4CAF50;
+            text-shadow: 0 2px 4px rgba(0, 0, 0, 0.3);
+        }
+        
+        .odia-text {
+            font-style: italic;
+            color: #FFD700;
+            font-size: 12px;
+            text-shadow: 0 1px 2px rgba(0, 0, 0, 0.5);
+        }
+
+        .battery-bar {
+            width: 200px;
+            height: 20px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 10px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .battery-fill {
+            height: 100%;
+            transition: width 1s ease;
+            border-radius: 10px;
+        }
+
+        .slider-container {
+            margin: 10px 0;
+        }
+
+        .slider {
+            width: 180px;
+            margin: 5px 0;
+        }
+
+        .festival-mode {
+            background: linear-gradient(45deg, #FF6B35, #F7931E);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            text-align: center;
+            animation: festival-glow 3s infinite;
+        }
+
+        @keyframes festival-glow {
+            0%, 100% { box-shadow: 0 0 10px rgba(255, 107, 53, 0.5); }
+            50% { box-shadow: 0 0 20px rgba(255, 107, 53, 0.8); }
+        }
+
+        .progress-bar {
+            width: 100%;
+            height: 8px;
+            background: rgba(255, 255, 255, 0.2);
+            border-radius: 4px;
+            overflow: hidden;
+            margin: 5px 0;
+        }
+
+        .progress-fill {
+            height: 100%;
+            background: linear-gradient(90deg, #4CAF50, #8BC34A);
+            transition: width 0.5s ease;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="ui-panel">
+            <h3>🤖 KrushiMitra Advanced Control</h3>
+            <div>Status: <span id="robot-status">Initializing...</span></div>
+            <div>Speed: <span id="current-speed">0.5</span> km/h (Livestock-safe)</div>
+            
+            <div>Battery: <span id="battery-percent">100%</span></div>
+            <div class="battery-bar">
+                <div class="battery-fill" id="battery-fill" style="width: 100%; background: linear-gradient(90deg, #4CAF50, #8BC34A);"></div>
+            </div>
+            
+            <div>Solar Charge Rate: <span id="solar-rate">+2.1%/min</span></div>
+            <div class="odia-text">"Machhi ra jatra jibe pani re"</div>
+            
+            <div style="margin-top: 15px;">
+                <button class="control-btn" onclick="toggleRobot()">▶️ Start/Stop</button>
+                <button class="control-btn" onclick="resetSimulation()">🔄 Reset Field</button>
+                <button class="control-btn" onclick="addDisease()">🦠 Add Disease</button>
+                <button class="control-btn" onclick="toggleFestivalMode()">🎭 Festival Mode</button>
+            </div>
+
+            <div class="slider-container">
+                <label>Robot Speed:</label>
+                <input type="range" class="slider" id="speed-slider" min="0.3" max="1.2" step="0.1" value="0.5" onchange="updateSpeed()">
+            </div>
+            
+            <div id="disease-alerts"></div>
+            <div id="festival-status"></div>
+        </div>
+        
+        <div id="stats">
+            <h3>📊 Advanced Field Analytics</h3>
+            <div>Field Coverage: <span id="coverage-percent">0%</span></div>
+            <div class="progress-bar">
+                <div class="progress-fill" id="coverage-bar" style="width: 0%;"></div>
+            </div>
+            
+            <div>Healthy Plants: <span id="healthy-count">95</span>/100</div>
+            <div>Diseased Plants: <span id="diseased-count">5</span>/100</div>
+            <div>Treated Successfully: <span id="treated-count">0</span></div>
+            <div>Treatment Accuracy: <span id="accuracy">100%</span></div>
+            
+            <div style="margin-top: 10px;">
+                <div>Chemical Reduction: <span id="chemical-reduction">90%</span></div>
+                <div>Water Quality: <span id="water-quality">Excellent</span></div>
+                <div>Yield Improvement: <span id="yield-improvement">+23%</span></div>
+            </div>
+            
+            <div style="margin-top: 10px; font-size: 12px; border-top: 1px solid rgba(255,255,255,0.3); padding-top: 8px;">
+                <div><strong>Economics (Validated)</strong></div>
+                <div>Daily Savings: ₹<span id="daily-savings">750</span></div>
+                <div>Season Profit: ₹<span id="season-profit">22,500</span></div>
+            </div>
+        </div>
+
+        <div id="weather-panel">
+            <h3>🌤️ Weather & Environment</h3>
+            <div>Condition: <span id="weather-condition">Monsoon Clouds</span></div>
+            <div>Temperature: <span id="temperature">28°C</span></div>
+            <div>Humidity: <span id="humidity">85%</span></div>
+            <div>Disease Risk: <span id="disease-risk">Moderate</span></div>
+            
+            <div style="margin-top: 10px;">
+                <button class="control-btn weather-btn" onclick="changeWeather('sunny')">☀️ Sunny</button>
+                <button class="control-btn weather-btn" onclick="changeWeather('monsoon')">🌧️ Monsoon</button>
+                <button class="control-btn weather-btn" onclick="changeWeather('cloudy')">☁️ Cloudy</button>
+            </div>
+        </div>
+
+        <div id="economics-panel">
+            <h3>💰 Live Economics</h3>
+            <div><strong>Cost Breakdown:</strong></div>
+            <div>• Vision Module: ₹4,800</div>
+            <div>• Treatment Arm: ₹6,500</div>
+            <div>• Treads: ₹800</div>
+            <div>• Battery: ₹1,800</div>
+            <div>• Misc: ₹4,800</div>
+            <div style="border-top: 1px solid rgba(255,255,255,0.3); margin-top: 5px; padding-top: 5px;">
+                <strong>Total BOM: ₹18,700</strong>
+            </div>
+            <div>ROI Period: <span id="roi-period">14 months</span></div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Enhanced global variables
+        let scene, camera, renderer, robot, paddyField = [];
+        let robotMoving = false;
+        let diseaseDetected = [];
+        let treatedPlants = 0;
+        let totalDiseased = 5;
+        let robotPath = [];
+        let currentPathIndex = 0;
+        let water, mudTexture;
+        let robotSpeed = 0.02;
+        let batteryLevel = 100;
+        let solarCharging = true;
+        let weatherCondition = 'monsoon';
+        let festivalMode = false;
+        let fieldCoverage = 0;
+        let dailySavings = 0;
+        let treatmentAccuracy = 100;
+        let startTime = Date.now();
+        let lastBatteryUpdate = Date.now();
+        
+        // Weather effects
+        let rainParticles, sunLight;
+        
+        // Initialize the enhanced simulation
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+            
+            // Create camera with better positioning
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(18, 15, 18);
+            camera.lookAt(0, 0, 0);
+            
+            // Create enhanced renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x87CEEB);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Enhanced lighting system
+            setupLighting();
+            
+            // Create enhanced paddy field
+            createEnhancedPaddyField();
+            
+            // Create enhanced robot
+            createEnhancedRobot();
+            
+            // Create weather effects
+            createWeatherEffects();
+            
+            // Generate optimized robot path
+            generateOptimizedRobotPath();
+            
+            // Start enhanced animation loop
+            animate();
+            
+            // Initialize realistic battery system
+            initializeBatterySystem();
+            
+            // Start periodic updates
+            setInterval(updateEnvironment, 5000); // Update every 5 seconds
+        }
+        
+        function setupLighting() {
+            // Ambient light
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.4);
+            scene.add(ambientLight);
+            
+            // Main sun light
+            sunLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            sunLight.position.set(30, 30, 20);
+            sunLight.castShadow = true;
+            sunLight.shadow.mapSize.width = 4096;
+            sunLight.shadow.mapSize.height = 4096;
+            sunLight.shadow.camera.near = 0.5;
+            sunLight.shadow.camera.far = 500;
+            scene.add(sunLight);
+            
+            // Additional fill light
+            const fillLight = new THREE.DirectionalLight(0x87CEEB, 0.3);
+            fillLight.position.set(-20, 20, -20);
+            scene.add(fillLight);
+        }
+        
+        function createEnhancedPaddyField() {
+            // Create animated water base
+            const waterGeometry = new THREE.PlaneGeometry(24, 24, 50, 50);
+            const waterMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x4169E1, 
+                transparent: true, 
+                opacity: 0.7,
+                side: THREE.DoubleSide
+            });
+            water = new THREE.Mesh(waterGeometry, waterMaterial);
+            water.rotation.x = -Math.PI / 2;
+            water.position.y = -0.05;
+            scene.add(water);
+            
+            // Enhanced mud base with texture variation
+            const mudGeometry = new THREE.PlaneGeometry(24, 24);
+            const mudMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const mud = new THREE.Mesh(mudGeometry, mudMaterial);
+            mud.rotation.x = -Math.PI / 2;
+            mud.position.y = -0.15;
+            mud.receiveShadow = true;
+            scene.add(mud);
+            
+            // Create field boundaries
+            createFieldBoundaries();
+            
+            // Create enhanced paddy plants with more variation
+            paddyField = [];
+            for (let row = 0; row < 10; row++) {
+                for (let col = 0; col < 10; col++) {
+                    const x = (row - 4.5) * 2.0;
+                    const z = (col - 4.5) * 2.0;
+                    
+                    const plant = createEnhancedPaddyPlant(x, z, row, col);
+                    plant.userData = { 
+                        row: row, 
+                        col: col, 
+                        healthy: Math.random() > 0.05,
+                        treated: false,
+                        growth: 0.8 + Math.random() * 0.4,
+                        diseaseType: null,
+                        visitedByRobot: false
+                    };
+                    
+                    if (!plant.userData.healthy) {
+                        applyDiseaseVisuals(plant);
+                        diseaseDetected.push(plant);
+                    }
+                    
+                    paddyField.push(plant);
+                    scene.add(plant);
+                }
+            }
+        }
+        
+        function createFieldBoundaries() {
+            // Create field borders
+            const borderMaterial = new THREE.MeshLambertMaterial({ color: 0x654321 });
+            
+            // Create 4 border walls
+            for (let i = 0; i < 4; i++) {
+                const borderGeometry = new THREE.BoxGeometry(
+                    i % 2 === 0 ? 26 : 0.5,
+                    0.3,
+                    i % 2 === 0 ? 0.5 : 26
+                );
+                const border = new THREE.Mesh(borderGeometry, borderMaterial);
+                
+                if (i === 0) border.position.set(0, 0.15, -12.25);
+                if (i === 1) border.position.set(12.25, 0.15, 0);
+                if (i === 2) border.position.set(0, 0.15, 12.25);
+                if (i === 3) border.position.set(-12.25, 0.15, 0);
+                
+                border.castShadow = true;
+                border.receiveShadow = true;
+                scene.add(border);
+            }
+        }
+        
+        function createEnhancedPaddyPlant(x, z, row, col) {
+            const plantGroup = new THREE.Group();
+            
+            // Enhanced stem with more detail
+            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.04, 1.0);
+            const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0.5;
+            stem.castShadow = true;
+            plantGroup.add(stem);
+            
+            // Enhanced leaves with better physics
+            const leafCount = 6 + Math.floor(Math.random() * 4);
+            for (let i = 0; i < leafCount; i++) {
+                const leafGeometry = new THREE.PlaneGeometry(0.12, 0.8);
+                const leafMaterial = new THREE.MeshLambertMaterial({ 
+                    color: new THREE.Color().setHSL(0.25 + Math.random() * 0.1, 0.6, 0.4),
+                    side: THREE.DoubleSide 
+                });
+                const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                
+                const angle = (i / leafCount) * Math.PI * 2;
+                const radius = 0.1 + Math.random() * 0.05;
+                leaf.position.x = Math.cos(angle) * radius;
+                leaf.position.z = Math.sin(angle) * radius;
+                leaf.position.y = 0.6 + Math.random() * 0.3;
+                leaf.rotation.y = angle + (Math.random() - 0.5) * 0.5;
+                leaf.rotation.z = (Math.random() - 0.5) * 0.4;
+                
+                leaf.castShadow = true;
+                plantGroup.add(leaf);
+            }
+            
+            // Add rice grains for mature plants
+            if (Math.random() > 0.3) {
+                const grainGeometry = new THREE.SphereGeometry(0.02, 4, 4);
+                const grainMaterial = new THREE.MeshLambertMaterial({ color: 0xF4A460 });
+                
+                for (let i = 0; i < 3 + Math.floor(Math.random() * 5); i++) {
+                    const grain = new THREE.Mesh(grainGeometry, grainMaterial);
+                    grain.position.x = (Math.random() - 0.5) * 0.2;
+                    grain.position.y = 0.8 + Math.random() * 0.3;
+                    grain.position.z = (Math.random() - 0.5) * 0.2;
+                    plantGroup.add(grain);
+                }
+            }
+            
+            // Add slight height variation based on field position
+            const heightVariation = 1 + (Math.sin(row * 0.5) * Math.cos(col * 0.3)) * 0.1;
+            plantGroup.scale.y = heightVariation;
+            
+            plantGroup.position.set(x, 0, z);
+            plantGroup.castShadow = true;
+            plantGroup.receiveShadow = true;
+            
+            return plantGroup;
+        }
+        
+        function createEnhancedRobot() {
+            robot = new THREE.Group();
+            
+            // Enhanced main body with better materials
+            const bodyGeometry = new THREE.BoxGeometry(0.8, 0.4, 1.0);
+            const bodyMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x4CAF50,
+                shininess: 30
+            });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.35;
+            body.castShadow = true;
+            robot.add(body);
+            
+            // Enhanced camera module (Redmi 9A with details)
+            const cameraGeometry = new THREE.BoxGeometry(0.18, 0.1, 0.1);
+            const cameraMaterial = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+            const camera_module = new THREE.Mesh(cameraGeometry, cameraMaterial);
+            camera_module.position.set(0, 0.45, 0.45);
+            
+            // Add camera lens
+            const lensGeometry = new THREE.CylinderGeometry(0.03, 0.03, 0.02);
+            const lensMaterial = new THREE.MeshPhongMaterial({ color: 0x000000 });
+            const lens = new THREE.Mesh(lensGeometry, lensMaterial);
+            lens.position.set(0, 0, 0.06);
+            lens.rotation.x = Math.PI / 2;
+            camera_module.add(lens);
+            
+            robot.add(camera_module);
+            
+            // Enhanced treatment arm with nozzle details
+            const armGeometry = new THREE.CylinderGeometry(0.025, 0.025, 0.5);
+            const armMaterial = new THREE.MeshPhongMaterial({ color: 0xFF6600 });
+            const arm = new THREE.Mesh(armGeometry, armMaterial);
+            arm.position.set(0.25, 0.25, 0);
+            arm.rotation.z = Math.PI / 6;
+            
+            // Add nozzle
+            const nozzleGeometry = new THREE.ConeGeometry(0.02, 0.05);
+            const nozzleMaterial = new THREE.MeshPhongMaterial({ color: 0x888888 });
+            const nozzle = new THREE.Mesh(nozzleGeometry, nozzleMaterial);
+            nozzle.position.set(0, -0.25, 0);
+            arm.add(nozzle);
+            
+            robot.add(arm);
+            
+            // Enhanced amphibious treads with better detail
+            for (let i = 0; i < 4; i++) {
+                const treadGroup = new THREE.Group();
+                
+                // Main tread
+                const treadGeometry = new THREE.CylinderGeometry(0.15, 0.15, 0.1);
+                const treadMaterial = new THREE.MeshPhongMaterial({ color: 0x2a2a2a });
+                const tread = new THREE.Mesh(treadGeometry, treadMaterial);
+                
+                // Add tread pattern
+                for (let j = 0; j < 8; j++) {
+                    const patternGeometry = new THREE.BoxGeometry(0.02, 0.01, 0.08);
+                    const patternMaterial = new THREE.MeshPhongMaterial({ color: 0x1a1a1a });
+                    const pattern = new THREE.Mesh(patternGeometry, patternMaterial);
+                    
+                    const angle = (j / 8) * Math.PI * 2;
+                    pattern.position.x = Math.cos(angle) * 0.16;
+                    pattern.position.z = Math.sin(angle) * 0.16;
+                    pattern.rotation.y = angle;
+                    
+                    tread.add(pattern);
+                }
+                
+                const x = i < 2 ? -0.3 : 0.3;
+                const z = i % 2 === 0 ? -0.35 : 0.35;
+                tread.position.set(x, 0.15, z);
+                tread.rotation.z = Math.PI / 2;
+                tread.castShadow = true;
+                
+                treadGroup.add(tread);
+                robot.add(treadGroup);
+            }
+            
+            // Enhanced solar panel with realistic details
+            const solarGeometry = new THREE.PlaneGeometry(0.6, 0.4);
+            const solarMaterial = new THREE.MeshPhongMaterial({ 
+                color: 0x191970,
+                transparent: true,
+                opacity: 0.9
+            });
+            const solar = new THREE.Mesh(solarGeometry, solarMaterial);
+            solar.position.y = 0.6;
+            solar.rotation.x = -Math.PI / 8;
+            
+            // Add solar cell grid
+            for (let i = 0; i < 3; i++) {
+                for (let j = 0; j < 2; j++) {
+                    const cellGeometry = new THREE.PlaneGeometry(0.15, 0.15);
+                    const cellMaterial = new THREE.MeshPhongMaterial({ color: 0x0f0f3f });
+                    const cell = new THREE.Mesh(cellGeometry, cellMaterial);
+                    cell.position.x = (i - 1) * 0.18;
+                    cell.position.z = (j - 0.5) * 0.18;
+                    cell.position.y = 0.001;
+                    solar.add(cell);
+                }
+            }
+            
+            robot.add(solar);
+            
+            // Add status LED
+            const ledGeometry = new THREE.SphereGeometry(0.02);
+            const ledMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+            const led = new THREE.Mesh(ledGeometry, ledMaterial);
+            led.position.set(0, 0.5, 0.4);
+            robot.userData.statusLED = led;
+            robot.add(led);
+            
+            // Fix: Start robot at visible position
+            robot.position.set(-8, 0, -8);
+            robot.castShadow = true;
+            scene.add(robot);
+            
+            console.log('Robot created at position:', robot.position);
+        }
+        
+        function createWeatherEffects() {
+            // Create rain particle system
+            const rainGeometry = new THREE.BufferGeometry();
+            const rainCount = 1000;
+            const rainPositions = new Float32Array(rainCount * 3);
+            
+            for (let i = 0; i < rainCount * 3; i += 3) {
+                rainPositions[i] = (Math.random() - 0.5) * 50;
+                rainPositions[i + 1] = Math.random() * 30 + 10;
+                rainPositions[i + 2] = (Math.random() - 0.5) * 50;
+            }
+            
+            rainGeometry.setAttribute('position', new THREE.BufferAttribute(rainPositions, 3));
+            const rainMaterial = new THREE.PointsMaterial({
+                color: 0x87CEEB,
+                size: 0.1,
+                transparent: true,
+                opacity: 0.6
+            });
+            
+            rainParticles = new THREE.Points(rainGeometry, rainMaterial);
+            rainParticles.visible = weatherCondition === 'monsoon';
+            scene.add(rainParticles);
+        }
+        
+        function generateOptimizedRobotPath() {
+            robotPath = [];
+            
+            // Generate more efficient spiral pattern
+            let x = -4.5, z = -4.5;
+            let direction = 0; // 0: right, 1: down, 2: left, 3: up
+            let steps = 9;
+            
+            for (let i = 0; i < 100; i++) {
+                robotPath.push(new THREE.Vector3(x * 2.0, 0, z * 2.0));
+                
+                // Move in current direction
+                if (direction === 0) x++;
+                else if (direction === 1) z++;
+                else if (direction === 2) x--;
+                else if (direction === 3) z--;
+                
+                // Check if we need to turn
+                if ((direction === 0 && x >= 4.5) ||
+                    (direction === 1 && z >= 4.5) ||
+                    (direction === 2 && x <= -4.5 + (9 - steps)) ||
+                    (direction === 3 && z <= -4.5 + (9 - steps))) {
+                    direction = (direction + 1) % 4;
+                    if (direction === 2 || direction === 0) steps--;
+                }
+            }
+        }
+        
+        function initializeBatterySystem() {
+            // Realistic battery simulation - 4 hour battery life
+            setInterval(() => {
+                const currentTime = Date.now();
+                const timeDiff = (currentTime - lastBatteryUpdate) / 1000; // seconds
+                lastBatteryUpdate = currentTime;
+                
+                if (robotMoving) {
+                    // Drain battery: 100% in 4 hours = 0.69% per minute
+                    batteryLevel -= (timeDiff / 60) * 0.42; // More realistic drainage
+                } else {
+                    // Idle consumption: much slower
+                    batteryLevel -= (timeDiff / 60) * 0.05;
+                }
+                
+                // Solar charging during day time and good weather
+                if (solarCharging && weatherCondition !== 'monsoon') {
+                    const chargeRate = weatherCondition === 'sunny' ? 0.35 : 0.15; // per minute
+                    batteryLevel += (timeDiff / 60) * chargeRate;
+                }
+                
+                // Festival mode drains battery faster (your unique feature!)
+                if (festivalMode) {
+                    batteryLevel -= (timeDiff / 60) * 0.11; // 11% accuracy drop during Rath Yatra
+                }
+                
+                // Keep battery between 0-100%
+                batteryLevel = Math.max(0, Math.min(100, batteryLevel));
+                
+                updateBatteryDisplay();
+                
+                // Auto-stop robot when battery too low
+                if (batteryLevel < 10 && robotMoving) {
+                    toggleRobot();
+                    showLowBatteryAlert();
+                }
+            }, 2000); // Update every 2 seconds
+        }
+        
+        function updateBatteryDisplay() {
+            const batteryPercent = Math.floor(batteryLevel);
+            document.getElementById('battery-percent').textContent = batteryPercent + '%';
+            
+            const batteryFill = document.getElementById('battery-fill');
+            batteryFill.style.width = batteryLevel + '%';
+            
+            // Change color based on battery level
+            if (batteryLevel > 60) {
+                batteryFill.style.background = 'linear-gradient(90deg, #4CAF50, #8BC34A)';
+            } else if (batteryLevel > 30) {
+                batteryFill.style.background = 'linear-gradient(90deg, #FF9800, #FFC107)';
+            } else {
+                batteryFill.style.background = 'linear-gradient(90deg, #F44336, #FF5722)';
+            }
+            
+            // Update solar charge rate
+            const solarRate = weatherCondition === 'sunny' ? '+2.1%/min' : 
+                            weatherCondition === 'cloudy' ? '+0.9%/min' : '+0.2%/min';
+            document.getElementById('solar-rate').textContent = solarRate;
+            
+            // Update robot LED color
+            if (robot && robot.userData.statusLED) {
+                const led = robot.userData.statusLED;
+                if (batteryLevel > 60) led.material.color.setHex(0x00ff00);
+                else if (batteryLevel > 30) led.material.color.setHex(0xffff00);
+                else led.material.color.setHex(0xff0000);
+            }
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Move robot along path
+            if (robotMoving && robotPath.length > 0 && batteryLevel > 5) {
+                const targetPosition = robotPath[currentPathIndex];
+                const currentPosition = robot.position;
+                
+                // Move towards target
+                const direction = targetPosition.clone().sub(currentPosition);
+                if (direction.length() > 0.15) {
+                    direction.normalize().multiplyScalar(robotSpeed);
+                    robot.position.add(direction);
+                    
+                    // Rotate robot to face movement direction
+                    robot.lookAt(targetPosition);
+                    
+                    // Add slight bobbing motion for realism
+                    robot.position.y = 0.02 * Math.sin(Date.now() * 0.01);
+                } else {
+                    // Reached waypoint, move to next
+                    currentPathIndex = (currentPathIndex + 1) % robotPath.length;
+                    
+                    // Update field coverage
+                    fieldCoverage = (currentPathIndex / robotPath.length) * 100;
+                    document.getElementById('coverage-percent').textContent = Math.floor(fieldCoverage) + '%';
+                    document.getElementById('coverage-bar').style.width = fieldCoverage + '%';
+                    
+                    // Check for diseases at current location
+                    checkForAdvancedDiseases();
+                }
+            }
+            
+            // Animate water with realistic waves
+            if (water) {
+                const time = Date.now() * 0.0005;
+                const positions = water.geometry.attributes.position;
+                for (let i = 0; i < positions.count; i++) {
+                    const x = positions.getX(i);
+                    const z = positions.getZ(i);
+                    const wave = Math.sin(x * 0.1 + time) * Math.cos(z * 0.1 + time * 0.8) * 0.02;
+                    positions.setY(i, wave);
+                }
+                positions.needsUpdate = true;
+            }
+            
+            // Animate rain particles
+            if (rainParticles && weatherCondition === 'monsoon') {
+                const positions = rainParticles.geometry.attributes.position;
+                for (let i = 0; i < positions.count; i++) {
+                    let y = positions.getY(i);
+                    y -= 0.1;
+                    if (y < -2) y = 30;
+                    positions.setY(i, y);
+                }
+                positions.needsUpdate = true;
+            }
+            
+            // Animate plant leaves in wind
+            paddyField.forEach((plant, index) => {
+                if (plant.children) {
+                    const windStrength = weatherCondition === 'monsoon' ? 0.02 : 0.005;
+                    const time = Date.now() * 0.001 + index * 0.1;
+                    
+                    plant.children.forEach((child, childIndex) => {
+                        if (childIndex > 0) { // Skip stem
+                            child.rotation.z = Math.sin(time + childIndex) * windStrength;
+                        }
+                    });
+                }
+            });
+            
+            renderer.render(scene, camera);
+        }
+        
+        function checkForAdvancedDiseases() {
+            const robotPos = robot.position;
+            
+            paddyField.forEach((plant, index) => {
+                const distance = robotPos.distanceTo(plant.position);
+                
+                if (distance < 2.0 && !plant.userData.healthy && !plant.userData.treated) {
+                    // Advanced disease detection with different algorithms
+                    detectAdvancedDisease(plant, index);
+                    setTimeout(() => treatAdvancedPlant(plant, index), 1500);
+                } else if (distance < 2.0 && !plant.userData.visitedByRobot) {
+                    // Mark as scanned
+                    plant.userData.visitedByRobot = true;
+                    
+                    // Add scan effect
+                    const scanGeometry = new THREE.RingGeometry(0.1, 0.15);
+                    const scanMaterial = new THREE.MeshBasicMaterial({ 
+                        color: 0x00ffff, 
+                        transparent: true, 
+                        opacity: 0.5 
+                    });
+                    const scanRing = new THREE.Mesh(scanGeometry, scanMaterial);
+                    scanRing.position.set(0, 0.5, 0);
+                    scanRing.rotation.x = -Math.PI / 2;
+                    plant.add(scanRing);
+                    
+                    // Remove scan ring after animation
+                    setTimeout(() => {
+                        plant.remove(scanRing);
+                    }, 1000);
+                }
+            });
+        }
+        
+        function detectAdvancedDisease(plant, index) {
+            const diseaseTypes = [
+                { name: 'Rice Blast', severity: 'High', color: 0xff0000 },
+                { name: 'Brown Spot', severity: 'Medium', color: 0xff6600 },
+                { name: 'Bacterial Blight', severity: 'High', color: 0xff3300 },
+                { name: 'Sheath Rot', severity: 'Low', color: 0xffaa00 }
+            ];
+            
+            const detectedDisease = diseaseTypes[Math.floor(Math.random() * diseaseTypes.length)];
+            plant.userData.diseaseType = detectedDisease;
+            
+            // YOLOv7 detection accuracy simulation
+            const accuracy = festivalMode ? 89 : 96; // Accuracy drops during festivals
+            const detectionTime = festivalMode ? 1.2 : 0.8; // Slower during festivals
+            
+            // Add disease indicator with severity color
+            const indicatorGeometry = new THREE.SphereGeometry(0.08);
+            const indicatorMaterial = new THREE.MeshBasicMaterial({ 
+                color: detectedDisease.color,
+                transparent: true,
+                opacity: 0.8
+            });
+            const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+            indicator.position.set(0, 1.2, 0);
+            
+            // Pulsing animation
+            const pulseAnimation = () => {
+                const scale = 1 + 0.3 * Math.sin(Date.now() * 0.01);
+                indicator.scale.setScalar(scale);
+            };
+            
+            const pulseInterval = setInterval(pulseAnimation, 50);
+            plant.add(indicator);
+            plant.userData.diseaseIndicator = indicator;
+            plant.userData.pulseInterval = pulseInterval;
+            
+            // Show advanced alert
+            showAdvancedDiseaseAlert(detectedDisease, plant.userData.row, plant.userData.col, accuracy);
+        }
+        
+        function treatAdvancedPlant(plant, index) {
+            const diseaseType = plant.userData.diseaseType;
+            if (!diseaseType) return;
+            
+            // Simulate organic nano-emulsion treatment
+            const treatmentSuccess = Math.random() > 0.05; // 95% success rate
+            
+            if (treatmentSuccess) {
+                // Change plant color to healthy green gradually
+                plant.children.forEach((child, childIndex) => {
+                    if (child.material && child.material.color) {
+                        // Animate color change
+                        const targetColor = new THREE.Color(0x32CD32);
+                        const currentColor = child.material.color;
+                        const animate = () => {
+                            currentColor.lerp(targetColor, 0.05);
+                            // Fix: Use manhattanDistanceTo instead of distanceTo
+                            const distance = Math.abs(currentColor.r - targetColor.r) + 
+                                           Math.abs(currentColor.g - targetColor.g) + 
+                                           Math.abs(currentColor.b - targetColor.b);
+                            if (distance > 0.01) {
+                                requestAnimationFrame(animate);
+                            }
+                        };
+                        animate();
+                    }
+                });
+                
+                // Remove disease indicator
+                if (plant.userData.diseaseIndicator) {
+                    clearInterval(plant.userData.pulseInterval);
+                    plant.remove(plant.userData.diseaseIndicator);
+                }
+                
+                // Add treatment success effect
+                const successGeometry = new THREE.SphereGeometry(0.1);
+                const successMaterial = new THREE.MeshBasicMaterial({ 
+                    color: 0x00ff44,
+                    transparent: true,
+                    opacity: 0.8
+                });
+                const success = new THREE.Mesh(successGeometry, successMaterial);
+                success.position.set(0, 1.3, 0);
+                plant.add(success);
+                
+                // Animate success indicator
+                let scale = 0;
+                const successInterval = setInterval(() => {
+                    scale += 0.1;
+                    success.scale.setScalar(scale);
+                    success.material.opacity = 1 - (scale / 3);
+                    
+                    if (scale >= 3) {
+                        clearInterval(successInterval);
+                        plant.remove(success);
+                    }
+                }, 50);
+                
+                plant.userData.treated = true;
+                plant.userData.healthy = true;
+                treatedPlants++;
+                dailySavings += 150; // ₹150 per plant saved
+                
+                updateAdvancedStats();
+                showAdvancedTreatmentSuccess(diseaseType);
+            } else {
+                // Treatment failed - rare case
+                showTreatmentFailure(diseaseType);
+                treatmentAccuracy = Math.max(85, treatmentAccuracy - 1);
+            }
+        }
+        
+        function showAdvancedDiseaseAlert(diseaseType, row, col, accuracy) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'disease-alert';
+            alertDiv.innerHTML = `
+                ⚠️ <strong>${diseaseType.name}</strong> detected at (${row},${col})
+                <br>📊 Confidence: ${accuracy}%
+                <br>🔬 Severity: ${diseaseType.severity}
+                <br>⏱️ Applying nano-emulsion...
+            `;
+            
+            document.getElementById('disease-alerts').appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 6000);
+        }
+        
+        function showAdvancedTreatmentSuccess(diseaseType) {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'treatment-success';
+            successDiv.innerHTML = `
+                ✅ <strong>${diseaseType.name}</strong> eliminated!
+                <br>💧 Nano-emulsion applied: 0.5ml
+                <br>🌱 Plant recovery: 98% success rate
+            `;
+            
+            document.getElementById('disease-alerts').appendChild(successDiv);
+            
+            setTimeout(() => {
+                if (successDiv.parentNode) {
+                    successDiv.remove();
+                }
+            }, 4000);
+        }
+        
+        function showTreatmentFailure(diseaseType) {
+            const failureDiv = document.createElement('div');
+            failureDiv.className = 'disease-alert';
+            failureDiv.innerHTML = `
+                ❌ Treatment partially effective for ${diseaseType.name}
+                <br>🔄 Scheduling follow-up treatment...
+            `;
+            
+            document.getElementById('disease-alerts').appendChild(failureDiv);
+            
+            setTimeout(() => {
+                if (failureDiv.parentNode) {
+                    failureDiv.remove();
+                }
+            }, 5000);
+        }
+        
+        function updateAdvancedStats() {
+            const healthyCount = paddyField.filter(p => p.userData.healthy).length;
+            const diseasedCount = paddyField.filter(p => !p.userData.healthy).length;
+            const seasonProfit = dailySavings * 3; // Season = 3 months roughly
+            
+            document.getElementById('healthy-count').textContent = healthyCount;
+            document.getElementById('diseased-count').textContent = diseasedCount;
+            document.getElementById('treated-count').textContent = treatedPlants;
+            document.getElementById('accuracy').textContent = Math.floor(treatmentAccuracy) + '%';
+            document.getElementById('daily-savings').textContent = dailySavings;
+            document.getElementById('season-profit').textContent = seasonProfit;
+            
+            // Update water quality based on chemical reduction
+            const chemicalReduction = Math.min(95, 75 + (treatedPlants * 2));
+            document.getElementById('chemical-reduction').textContent = chemicalReduction + '%';
+            
+            const waterQuality = chemicalReduction > 90 ? 'Excellent' : 
+                               chemicalReduction > 70 ? 'Good' : 'Fair';
+            document.getElementById('water-quality').textContent = waterQuality;
+            
+            // Update yield improvement
+            const yieldImprovement = Math.min(35, 15 + treatedPlants);
+            document.getElementById('yield-improvement').textContent = '+' + yieldImprovement + '%';
+            
+            // Update ROI based on performance
+            const roiMonths = Math.max(10, 18 - Math.floor(treatmentAccuracy / 10));
+            document.getElementById('roi-period').textContent = roiMonths + ' months';
+        }
+        
+        function updateEnvironment() {
+            // Simulate disease risk based on weather and festival calendar
+            let riskLevel = 'Low';
+            let riskColor = '#4CAF50';
+            
+            if (weatherCondition === 'monsoon') {
+                riskLevel = 'High';
+                riskColor = '#FF5722';
+                
+                // Add random new diseases during monsoon
+                if (Math.random() > 0.7) {
+                    addDisease();
+                }
+            } else if (weatherCondition === 'cloudy') {
+                riskLevel = 'Medium';
+                riskColor = '#FF9800';
+            }
+            
+            if (festivalMode) {
+                riskLevel = 'Very High (Festival Effect)';
+                riskColor = '#F44336';
+            }
+            
+            document.getElementById('disease-risk').textContent = riskLevel;
+            document.getElementById('disease-risk').style.color = riskColor;
+            
+            // Update temperature and humidity
+            const baseTemp = weatherCondition === 'sunny' ? 32 : 
+                            weatherCondition === 'monsoon' ? 26 : 29;
+            const temp = baseTemp + Math.floor(Math.random() * 4) - 2;
+            document.getElementById('temperature').textContent = temp + '°C';
+            
+            const baseHumidity = weatherCondition === 'monsoon' ? 90 :
+                                weatherCondition === 'cloudy' ? 70 : 60;
+            const humidity = baseHumidity + Math.floor(Math.random() * 10) - 5;
+            document.getElementById('humidity').textContent = humidity + '%';
+        }
+        
+        function showLowBatteryAlert() {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'disease-alert';
+            alertDiv.innerHTML = `
+                🔋 <strong>Low Battery Warning!</strong>
+                <br>⚡ Battery: ${Math.floor(batteryLevel)}%
+                <br>☀️ Robot paused for solar charging
+                <br>⏱️ Resume in ${Math.ceil((20 - batteryLevel) / 2)} minutes
+            `;
+            
+            document.getElementById('disease-alerts').appendChild(alertDiv);
+            
+            setTimeout(() => {
+                if (alertDiv.parentNode) {
+                    alertDiv.remove();
+                }
+            }, 8000);
+        }
+        
+        // Control functions
+        function toggleRobot() {
+            if (batteryLevel < 5) {
+                showLowBatteryAlert();
+                return;
+            }
+            
+            robotMoving = !robotMoving;
+            const status = robotMoving ? 'Active Scanning...' : 'Paused';
+            document.getElementById('robot-status').textContent = status;
+            
+            // Update LED status
+            if (robot && robot.userData.statusLED) {
+                const color = robotMoving ? 0x00ff00 : 0xffff00;
+                robot.userData.statusLED.material.color.setHex(color);
+            }
+            
+            // Debug: Log robot status
+            console.log('Robot moving:', robotMoving, 'Position:', robot.position, 'Battery:', batteryLevel);
+        }
+        
+        function resetSimulation() {
+            // Reset all plants with new disease distribution
+            paddyField.forEach(plant => {
+                // Clear existing indicators and intervals
+                if (plant.userData.diseaseIndicator) {
+                    clearInterval(plant.userData.pulseInterval);
+                    plant.remove(plant.userData.diseaseIndicator);
+                }
+                
+                plant.userData.healthy = Math.random() > 0.08; // Slightly more diseases
+                plant.userData.treated = false;
+                plant.userData.visitedByRobot = false;
+                plant.userData.diseaseType = null;
+                
+                // Reset colors with animation
+                plant.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        const targetColor = plant.userData.healthy ? 
+                            new THREE.Color(0x32CD32) : new THREE.Color(0xDAA520);
+                        child.material.color.copy(targetColor);
+                    }
+                });
+            });
+            
+            // Reset simulation state
+            treatedPlants = 0;
+            currentPathIndex = 0;
+            fieldCoverage = 0;
+            dailySavings = 0;
+            treatmentAccuracy = 100;
+            batteryLevel = 100;
+            robotMoving = false; // Fix: Start with robot stopped
+            
+            robot.position.set(-8, 0, -8); // Fix: Better starting position
+            document.getElementById('disease-alerts').innerHTML = '';
+            document.getElementById('festival-status').innerHTML = '';
+            document.getElementById('robot-status').textContent = 'Ready to Start';
+            
+            updateAdvancedStats();
+            updateBatteryDisplay();
+            console.log('Simulation reset. Robot at:', robot.position);
+        }
+        
+        function addDisease() {
+            // Add disease to random healthy plants
+            const healthyPlants = paddyField.filter(p => p.userData.healthy && !p.userData.treated);
+            if (healthyPlants.length > 0) {
+                const count = Math.min(2, healthyPlants.length);
+                for (let i = 0; i < count; i++) {
+                    const randomPlant = healthyPlants[Math.floor(Math.random() * healthyPlants.length)];
+                    randomPlant.userData.healthy = false;
+                    
+                    // Apply disease visuals
+                    applyDiseaseVisuals(randomPlant);
+                }
+                updateAdvancedStats();
+            }
+        }
+        
+        function applyDiseaseVisuals(plant) {
+            plant.children.forEach(child => {
+                if (child.material && child.material.color) {
+                    // Gradual color change to diseased
+                    const diseaseColor = new THREE.Color(0xDAA520);
+                    child.material.color.copy(diseaseColor);
+                }
+            });
+        }
+        
+        function updateSpeed() {
+            const speedSlider = document.getElementById('speed-slider');
+            const newSpeed = parseFloat(speedSlider.value);
+            robotSpeed = newSpeed * 0.04; // Convert to movement speed
+            document.getElementById('current-speed').textContent = newSpeed;
+        }
+        
+        function changeWeather(condition) {
+            weatherCondition = condition;
+            document.getElementById('weather-condition').textContent = 
+                condition.charAt(0).toUpperCase() + condition.slice(1);
+            
+            // Update scene based on weather
+            if (condition === 'sunny') {
+                scene.fog.color.setHex(0x87CEEB);
+                sunLight.intensity = 1.2;
+                rainParticles.visible = false;
+                solarCharging = true;
+            } else if (condition === 'monsoon') {
+                scene.fog.color.setHex(0x696969);
+                sunLight.intensity = 0.4;
+                rainParticles.visible = true;
+                solarCharging = false;
+            } else if (condition === 'cloudy') {
+                scene.fog.color.setHex(0x778899);
+                sunLight.intensity = 0.7;
+                rainParticles.visible = false;
+                solarCharging = true;
+            }
+            
+            updateEnvironment();
+        }
+        
+        function toggleFestivalMode() {
+            festivalMode = !festivalMode;
+            
+            if (festivalMode) {
+                // Rath Yatra festival mode - accuracy drops, battery drains faster
+                document.getElementById('festival-status').innerHTML = `
+                    <div class="festival-mode">
+                        🎭 <strong>Rath Yatra Festival Mode Active</strong>
+                        <br>📉 Prediction accuracy: -11%
+                        <br>🔋 Battery drain: +15%
+                        <br>🎪 "Festival Calendar Coefficient" applied
+                    </div>
+                `;
+                
+                // Change robot LED to festival colors
+                if (robot && robot.userData.statusLED) {
+                    robot.userData.statusLED.material.color.setHex(0xFF6B35);
+                }
+            } else {
+                document.getElementById('festival-status').innerHTML = '';
+                
+                // Reset LED
+                if (robot && robot.userData.statusLED) {
+                    robot.userData.statusLED.material.color.setHex(0x00ff00);
+                }
+            }
+            
+            updateEnvironment();
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Initialize enhanced simulation
+        init();
+    </script>
+</body>
+</html>
