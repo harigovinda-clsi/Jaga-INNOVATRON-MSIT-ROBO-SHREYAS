@@ -1,0 +1,538 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>KrushiMitra: 3D Paddy Field Simulation</title>
+    <style>
+        body {
+            margin: 0;
+            padding: 0;
+            background: linear-gradient(135deg, #87CEEB, #98FB98);
+            font-family: 'Arial', sans-serif;
+            overflow: hidden;
+        }
+        
+        #container {
+            position: relative;
+            width: 100vw;
+            height: 100vh;
+        }
+        
+        #ui-panel {
+            position: absolute;
+            top: 20px;
+            left: 20px;
+            background: rgba(0, 0, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+            min-width: 250px;
+        }
+        
+        #stats {
+            position: absolute;
+            top: 20px;
+            right: 20px;
+            background: rgba(0, 100, 0, 0.8);
+            color: white;
+            padding: 15px;
+            border-radius: 10px;
+            z-index: 100;
+        }
+        
+        .control-btn {
+            background: #4CAF50;
+            color: white;
+            border: none;
+            padding: 8px 15px;
+            margin: 5px;
+            border-radius: 5px;
+            cursor: pointer;
+            font-size: 12px;
+        }
+        
+        .control-btn:hover {
+            background: #45a049;
+        }
+        
+        .disease-alert {
+            background: rgba(255, 0, 0, 0.9);
+            color: white;
+            padding: 10px;
+            border-radius: 5px;
+            margin: 5px 0;
+            animation: pulse 1s infinite;
+        }
+        
+        @keyframes pulse {
+            0% { opacity: 1; }
+            50% { opacity: 0.7; }
+            100% { opacity: 1; }
+        }
+        
+        .treatment-success {
+            background: rgba(0, 255, 0, 0.9);
+            color: white;
+            padding: 8px;
+            border-radius: 5px;
+            margin: 2px 0;
+        }
+        
+        h3 {
+            margin: 10px 0 5px 0;
+            color: #4CAF50;
+        }
+        
+        .odia-text {
+            font-style: italic;
+            color: #FFD700;
+            font-size: 11px;
+        }
+    </style>
+</head>
+<body>
+    <div id="container">
+        <div id="ui-panel">
+            <h3>🤖 KrushiMitra Control</h3>
+            <div>Status: <span id="robot-status">Scanning...</span></div>
+            <div>Speed: 0.5 km/h (Livestock-safe)</div>
+            <div>Battery: <span id="battery">100%</span></div>
+            <div class="odia-text">"Machhi ra jatra jibe pani re"</div>
+            
+            <div style="margin-top: 10px;">
+                <button class="control-btn" onclick="toggleRobot()">Start/Stop</button>
+                <button class="control-btn" onclick="resetSimulation()">Reset Field</button>
+                <button class="control-btn" onclick="addDisease()">Add Disease</button>
+            </div>
+            
+            <div id="disease-alerts"></div>
+        </div>
+        
+        <div id="stats">
+            <h3>📊 Field Statistics</h3>
+            <div>Healthy Plants: <span id="healthy-count">95</span></div>
+            <div>Diseased Plants: <span id="diseased-count">5</span></div>
+            <div>Treated Successfully: <span id="treated-count">0</span></div>
+            <div>Chemical Reduction: <span id="chemical-reduction">90%</span></div>
+            <div>Cost Saved: ₹<span id="cost-saved">0</span></div>
+            
+            <div style="margin-top: 10px; font-size: 11px;">
+                <div>BOM Cost: ₹18,700</div>
+                <div>ROI Period: 14 months</div>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/three.js/r128/three.min.js"></script>
+    <script>
+        // Global variables
+        let scene, camera, renderer, robot, paddyField = [];
+        let robotMoving = true;
+        let diseaseDetected = [];
+        let treatedPlants = 0;
+        let totalDiseased = 5;
+        let robotPath = [];
+        let currentPathIndex = 0;
+        let water, mudTexture;
+        
+        // Initialize the simulation
+        function init() {
+            // Create scene
+            scene = new THREE.Scene();
+            scene.fog = new THREE.Fog(0x87CEEB, 10, 100);
+            
+            // Create camera
+            camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.1, 1000);
+            camera.position.set(15, 12, 15);
+            camera.lookAt(0, 0, 0);
+            
+            // Create renderer
+            renderer = new THREE.WebGLRenderer({ antialias: true });
+            renderer.setSize(window.innerWidth, window.innerHeight);
+            renderer.setClearColor(0x87CEEB);
+            renderer.shadowMap.enabled = true;
+            renderer.shadowMap.type = THREE.PCFSoftShadowMap;
+            document.getElementById('container').appendChild(renderer.domElement);
+            
+            // Add lighting
+            const ambientLight = new THREE.AmbientLight(0xffffff, 0.6);
+            scene.add(ambientLight);
+            
+            const directionalLight = new THREE.DirectionalLight(0xffffff, 0.8);
+            directionalLight.position.set(20, 20, 10);
+            directionalLight.castShadow = true;
+            directionalLight.shadow.mapSize.width = 2048;
+            directionalLight.shadow.mapSize.height = 2048;
+            scene.add(directionalLight);
+            
+            // Create paddy field
+            createPaddyField();
+            
+            // Create robot
+            createRobot();
+            
+            // Create robot path
+            generateRobotPath();
+            
+            // Start animation
+            animate();
+        }
+        
+        function createPaddyField() {
+            // Create water base (flooded field)
+            const waterGeometry = new THREE.PlaneGeometry(20, 20);
+            const waterMaterial = new THREE.MeshLambertMaterial({ 
+                color: 0x4169E1, 
+                transparent: true, 
+                opacity: 0.7 
+            });
+            water = new THREE.Mesh(waterGeometry, waterMaterial);
+            water.rotation.x = -Math.PI / 2;
+            water.position.y = -0.1;
+            scene.add(water);
+            
+            // Create mud/soil base
+            const mudGeometry = new THREE.PlaneGeometry(20, 20);
+            const mudMaterial = new THREE.MeshLambertMaterial({ color: 0x8B4513 });
+            const mud = new THREE.Mesh(mudGeometry, mudMaterial);
+            mud.rotation.x = -Math.PI / 2;
+            mud.position.y = -0.2;
+            scene.add(mud);
+            
+            // Create paddy plants in rows
+            for (let row = 0; row < 10; row++) {
+                for (let col = 0; col < 10; col++) {
+                    const x = (row - 4.5) * 1.8;
+                    const z = (col - 4.5) * 1.8;
+                    
+                    const plant = createPaddyPlant(x, z);
+                    plant.userData = { 
+                        row: row, 
+                        col: col, 
+                        healthy: Math.random() > 0.05,
+                        treated: false
+                    };
+                    
+                    if (!plant.userData.healthy) {
+                        // Make diseased plants slightly brown/yellow
+                        plant.children.forEach(leaf => {
+                            if (leaf.material) {
+                                leaf.material = leaf.material.clone();
+                                leaf.material.color.setHex(0xDAA520);
+                            }
+                        });
+                        diseaseDetected.push(plant);
+                    }
+                    
+                    paddyField.push(plant);
+                    scene.add(plant);
+                }
+            }
+        }
+        
+        function createPaddyPlant(x, z) {
+            const plantGroup = new THREE.Group();
+            
+            // Create stem
+            const stemGeometry = new THREE.CylinderGeometry(0.02, 0.03, 0.8);
+            const stemMaterial = new THREE.MeshLambertMaterial({ color: 0x228B22 });
+            const stem = new THREE.Mesh(stemGeometry, stemMaterial);
+            stem.position.y = 0.4;
+            plantGroup.add(stem);
+            
+            // Create leaves
+            for (let i = 0; i < 6; i++) {
+                const leafGeometry = new THREE.PlaneGeometry(0.1, 0.6);
+                const leafMaterial = new THREE.MeshLambertMaterial({ 
+                    color: 0x32CD32, 
+                    side: THREE.DoubleSide 
+                });
+                const leaf = new THREE.Mesh(leafGeometry, leafMaterial);
+                
+                const angle = (i / 6) * Math.PI * 2;
+                leaf.position.x = Math.cos(angle) * 0.1;
+                leaf.position.z = Math.sin(angle) * 0.1;
+                leaf.position.y = 0.5 + Math.random() * 0.2;
+                leaf.rotation.y = angle;
+                leaf.rotation.z = (Math.random() - 0.5) * 0.3;
+                
+                plantGroup.add(leaf);
+            }
+            
+            plantGroup.position.set(x, 0, z);
+            return plantGroup;
+        }
+        
+        function createRobot() {
+            robot = new THREE.Group();
+            
+            // Main body (inspired by your bamboo frame design)
+            const bodyGeometry = new THREE.BoxGeometry(0.6, 0.3, 0.8);
+            const bodyMaterial = new THREE.MeshLambertMaterial({ color: 0x4CAF50 });
+            const body = new THREE.Mesh(bodyGeometry, bodyMaterial);
+            body.position.y = 0.3;
+            body.castShadow = true;
+            robot.add(body);
+            
+            // Camera module (Redmi 9A representation)
+            const cameraGeometry = new THREE.BoxGeometry(0.15, 0.08, 0.08);
+            const cameraMaterial = new THREE.MeshLambertMaterial({ color: 0x000000 });
+            const camera_module = new THREE.Mesh(cameraGeometry, cameraMaterial);
+            camera_module.position.set(0, 0.4, 0.4);
+            robot.add(camera_module);
+            
+            // Treatment arm
+            const armGeometry = new THREE.CylinderGeometry(0.02, 0.02, 0.4);
+            const armMaterial = new THREE.MeshLambertMaterial({ color: 0xFF6600 });
+            const arm = new THREE.Mesh(armGeometry, armMaterial);
+            arm.position.set(0.2, 0.2, 0);
+            arm.rotation.z = Math.PI / 4;
+            robot.add(arm);
+            
+            // Amphibious treads (repurposed scooter tires)
+            for (let i = 0; i < 4; i++) {
+                const treadGeometry = new THREE.CylinderGeometry(0.12, 0.12, 0.08);
+                const treadMaterial = new THREE.MeshLambertMaterial({ color: 0x333333 });
+                const tread = new THREE.Mesh(treadGeometry, treadMaterial);
+                
+                const x = i < 2 ? -0.25 : 0.25;
+                const z = i % 2 === 0 ? -0.3 : 0.3;
+                tread.position.set(x, 0.12, z);
+                tread.rotation.z = Math.PI / 2;
+                
+                robot.add(tread);
+            }
+            
+            // Solar panel
+            const solarGeometry = new THREE.PlaneGeometry(0.5, 0.3);
+            const solarMaterial = new THREE.MeshLambertMaterial({ color: 0x191970 });
+            const solar = new THREE.Mesh(solarGeometry, solarMaterial);
+            solar.position.y = 0.5;
+            solar.rotation.x = -Math.PI / 6;
+            robot.add(solar);
+            
+            robot.position.set(-8, 0, -8);
+            robot.castShadow = true;
+            scene.add(robot);
+        }
+        
+        function generateRobotPath() {
+            // Generate zigzag pattern like traditional farming
+            robotPath = [];
+            for (let row = 0; row < 10; row++) {
+                if (row % 2 === 0) {
+                    // Left to right
+                    for (let col = 0; col < 10; col++) {
+                        const x = (row - 4.5) * 1.8;
+                        const z = (col - 4.5) * 1.8;
+                        robotPath.push(new THREE.Vector3(x, 0, z));
+                    }
+                } else {
+                    // Right to left
+                    for (let col = 9; col >= 0; col--) {
+                        const x = (row - 4.5) * 1.8;
+                        const z = (col - 4.5) * 1.8;
+                        robotPath.push(new THREE.Vector3(x, 0, z));
+                    }
+                }
+            }
+        }
+        
+        function animate() {
+            requestAnimationFrame(animate);
+            
+            // Move robot along path
+            if (robotMoving && robotPath.length > 0) {
+                const targetPosition = robotPath[currentPathIndex];
+                const currentPosition = robot.position;
+                
+                // Move towards target
+                const direction = targetPosition.clone().sub(currentPosition);
+                if (direction.length() > 0.1) {
+                    direction.normalize().multiplyScalar(0.02); // Slow movement (0.5 km/h)
+                    robot.position.add(direction);
+                    
+                    // Rotate robot to face movement direction
+                    robot.lookAt(targetPosition);
+                } else {
+                    // Reached waypoint, move to next
+                    currentPathIndex = (currentPathIndex + 1) % robotPath.length;
+                    
+                    // Check for diseases at current location
+                    checkForDiseases();
+                }
+            }
+            
+            // Animate water
+            if (water) {
+                const time = Date.now() * 0.001;
+                water.material.opacity = 0.6 + Math.sin(time) * 0.1;
+            }
+            
+            // Update battery
+            const battery = Math.max(20, 100 - (Date.now() * 0.01) % 80);
+            document.getElementById('battery').textContent = Math.floor(battery) + '%';
+            
+            renderer.render(scene, camera);
+        }
+        
+        function checkForDiseases() {
+            const robotPos = robot.position;
+            
+            paddyField.forEach((plant, index) => {
+                const distance = robotPos.distanceTo(plant.position);
+                
+                if (distance < 1.5 && !plant.userData.healthy && !plant.userData.treated) {
+                    // Disease detected!
+                    detectDisease(plant, index);
+                    treatPlant(plant, index);
+                }
+            });
+        }
+        
+        function detectDisease(plant, index) {
+            const diseaseTypes = ['Rice Blast', 'Brown Spot', 'Bacterial Blight'];
+            const detectedDisease = diseaseTypes[Math.floor(Math.random() * diseaseTypes.length)];
+            
+            // Add visual indicator
+            const indicatorGeometry = new THREE.SphereGeometry(0.1);
+            const indicatorMaterial = new THREE.MeshBasicMaterial({ color: 0xFF0000 });
+            const indicator = new THREE.Mesh(indicatorGeometry, indicatorMaterial);
+            indicator.position.set(0, 1, 0);
+            plant.add(indicator);
+            
+            // Show alert
+            showDiseaseAlert(detectedDisease, plant.userData.row, plant.userData.col);
+            
+            // Remove indicator after treatment
+            setTimeout(() => {
+                plant.remove(indicator);
+            }, 3000);
+        }
+        
+        function treatPlant(plant, index) {
+            setTimeout(() => {
+                // Change plant color to healthy green
+                plant.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        child.material.color.setHex(0x32CD32);
+                    }
+                });
+                
+                // Add treatment success indicator
+                const successGeometry = new THREE.SphereGeometry(0.08);
+                const successMaterial = new THREE.MeshBasicMaterial({ color: 0x00FF00 });
+                const success = new THREE.Mesh(successGeometry, successMaterial);
+                success.position.set(0, 1.2, 0);
+                plant.add(success);
+                
+                plant.userData.treated = true;
+                plant.userData.healthy = true;
+                treatedPlants++;
+                
+                updateStats();
+                showTreatmentSuccess();
+                
+                // Remove success indicator
+                setTimeout(() => {
+                    plant.remove(success);
+                }, 2000);
+            }, 2000); // Treatment delay
+        }
+        
+        function showDiseaseAlert(diseaseType, row, col) {
+            const alertDiv = document.createElement('div');
+            alertDiv.className = 'disease-alert';
+            alertDiv.innerHTML = `⚠️ ${diseaseType} detected at (${row},${col})<br>Applying nano-emulsion treatment...`;
+            
+            document.getElementById('disease-alerts').appendChild(alertDiv);
+            
+            // Remove alert after 5 seconds
+            setTimeout(() => {
+                alertDiv.remove();
+            }, 5000);
+        }
+        
+        function showTreatmentSuccess() {
+            const successDiv = document.createElement('div');
+            successDiv.className = 'treatment-success';
+            successDiv.innerHTML = '✅ Treatment successful - Disease eliminated!';
+            
+            document.getElementById('disease-alerts').appendChild(successDiv);
+            
+            setTimeout(() => {
+                successDiv.remove();
+            }, 3000);
+        }
+        
+        function updateStats() {
+            const healthyCount = paddyField.filter(p => p.userData.healthy).length;
+            const diseasedCount = paddyField.filter(p => !p.userData.healthy).length;
+            const costSaved = treatedPlants * 150; // ₹150 per plant saved
+            
+            document.getElementById('healthy-count').textContent = healthyCount;
+            document.getElementById('diseased-count').textContent = diseasedCount;
+            document.getElementById('treated-count').textContent = treatedPlants;
+            document.getElementById('cost-saved').textContent = costSaved;
+        }
+        
+        // Control functions
+        function toggleRobot() {
+            robotMoving = !robotMoving;
+            document.getElementById('robot-status').textContent = robotMoving ? 'Scanning...' : 'Paused';
+        }
+        
+        function resetSimulation() {
+            // Reset all plants
+            paddyField.forEach(plant => {
+                plant.userData.healthy = Math.random() > 0.05;
+                plant.userData.treated = false;
+                
+                // Reset colors
+                plant.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        const color = plant.userData.healthy ? 0x32CD32 : 0xDAA520;
+                        child.material.color.setHex(color);
+                    }
+                });
+            });
+            
+            treatedPlants = 0;
+            currentPathIndex = 0;
+            robot.position.set(-8, 0, -8);
+            document.getElementById('disease-alerts').innerHTML = '';
+            updateStats();
+        }
+        
+        function addDisease() {
+            // Add disease to a random healthy plant
+            const healthyPlants = paddyField.filter(p => p.userData.healthy);
+            if (healthyPlants.length > 0) {
+                const randomPlant = healthyPlants[Math.floor(Math.random() * healthyPlants.length)];
+                randomPlant.userData.healthy = false;
+                
+                // Change color to diseased
+                randomPlant.children.forEach(child => {
+                    if (child.material && child.material.color) {
+                        child.material.color.setHex(0xDAA520);
+                    }
+                });
+                
+                updateStats();
+            }
+        }
+        
+        // Handle window resize
+        window.addEventListener('resize', () => {
+            camera.aspect = window.innerWidth / window.innerHeight;
+            camera.updateProjectionMatrix();
+            renderer.setSize(window.innerWidth, window.innerHeight);
+        });
+        
+        // Initialize simulation
+        init();
+    </script>
+</body>
+</html>
